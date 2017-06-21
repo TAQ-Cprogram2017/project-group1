@@ -1,0 +1,1265 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
+#pragma comment(lib, "WINMM.LIB")
+#pragma comment(lib,"msimg32.lib")
+#define INFO_TEXTCOLOR(ra) RGB(255,255*(ra),255*(ra))
+#define SOUND(name) PlaySound((name),NULL,SND_FILENAME|SND_ASYNC)
+#define WIDTH 780
+#define HEIGHT 480
+#define F_X 660
+#define F_Y 140
+#define F2_X 710
+#define F2_Y 140
+#define T_X 660
+#define T_Y 180
+#define T2_X 710
+#define T2_Y 180
+#define SOUND_BUILD "./data/build.wav"
+#define SOUND_CHOOSE "./data/choose.wav"
+#define SOUND_BOOM "./data/boom.wav"
+#define SOUND_GAME "./data/game.wav"
+
+#define SOUND_SHUT "./data/shut.wav"
+#define SOUND_FIRE "./data/fire.wav"
+enum E_GAMESTATE{GAME_MENU,GAME_WIN,GAME_INFO,GAME_SHOWSTAR,GAME_DRAW,GAME_RUN,GAME_FORTDRAW,GAME_OVER,GAME_BULLTDRAW,GAME_MONEYDRAW};
+
+enum E_DIRECTION{E_UP,E_DOWN,E_LEFT,E_RIGHT};
+enum E_TMPSTATE g_tmpstate;
+
+enum E_GAMESTATE g_gamestate;
+enum E_KEY{ON,OFF};
+enum E_KEY g_key;
+enum E_DIRECTION g_direction;
+HWND g_hWnd;
+HDC g_hDC,g_hSwapDC;
+HDC *g_hBmpDC;
+HBITMAP g_hSwapBmp;
+HBITMAP *g_hBmp;
+LRESULT CALLBACK WndProc (HWND, UINT, WPARAM, LPARAM) ;
+void show();
+void draw();
+void read();
+void cheakturn();
+void cheakshut();
+void cheakboom();
+void cheakhp();
+void cheakipass();
+void gameloop();
+void drawbullt();
+void drawinfo();
+void star();
+void drawboom();
+char pic[11][20] = {"./data/map1.bmp","./data/map2.bmp","./data/map3.bmp","./data/fort.bmp","./data/tank1.bmp","./data/limit.bmp",
+"./data/tank2.bmp","./data/tower.bmp","./data/fire.bmp","./data/game.bmp","./data/map0.bmp"};
+int turn[3][10][3];
+int wh[4] = {0,40,80,120};
+char mapdata[6][20] = {"./data/map1data1","./data/map2data1","./data/map3data1","./data/map1data2","./data/map2data2","./data/map3data2"};
+int cpass = 1;
+int wpic = 0;
+int wpass = 0;
+int fort_num[4] = {1,1,1,1};
+int ipass_num = 0;
+int tank_num = 1;
+int life = 5;
+int wtank = 4;
+int bullt_num = 0;
+int direction = 1;
+int wfort = -1;
+int wtower = -1;
+int sellw = 0;
+int money = 120;
+int firekey = 0;
+int menukey = 0;
+int overkey = 1;
+int ipass[8] = {4,6,8,10,5,9,11,17};
+
+struct ta
+{
+	int x;
+	int y;
+	int hp;
+	int turn;
+	int money;
+	
+}tank[20];
+struct fo
+{
+	int x;
+	int y;
+	int money;
+	
+}fort[4][20];
+struct li
+{
+	int x;
+	int y;
+}limits[4][20];
+
+
+struct mo
+{
+	int x;
+	int y;
+}mone;
+struct bu
+{
+	int x;
+	int y;
+	int aim;
+	int key;
+	int hurt;
+	int num;
+}bullt[4][20];
+struct fir
+{
+	int x;
+	int y;
+}boomfire;
+struct fi
+{
+	int x;
+	int y;
+	int way;
+    
+}file[3][10];
+
+struct ex
+{
+	int x1;
+	int x2;
+	int y1;
+	int y2;
+	
+}extent[3][10];
+
+int APIENTRY WinMain(HINSTANCE hInstance,
+                     HINSTANCE hPrevInstance,
+                     LPSTR     lpCmdLine,
+                     int       nCmdShow)
+{
+	MSG msg;
+	int m_time = 0;
+	int m_tank,m_bullt,angle,i,j,x1,y1;
+	float t,x,y;
+	show(hInstance,nCmdShow);
+	g_gamestate=GAME_MENU;
+    ST: star();
+	
+	
+	while(1)
+	{
+		
+		
+		if(m_time > 1)
+		{
+			if(tank[tank_num - 1].y > 50 && tank_num < ipass[ipass_num])
+			{
+				tank_num++;
+				
+				
+			}
+			if(life == 0)
+			{
+				g_gamestate = GAME_OVER;
+				if(overkey == 1)
+				{
+					SOUND(SOUND_BOOM);
+					overkey--;
+				}
+			}
+			
+			if(cpass == 2)
+			{
+			cpass = 0;
+			wpic++;
+			wpass++;
+			g_gamestate=GAME_SHOWSTAR;
+			goto ST;}
+			cheakshut();
+			cheakboom();
+			cheakipass();
+			if(g_gamestate!=GAME_MENU && g_gamestate!=GAME_OVER && g_gamestate!=GAME_WIN)
+			{
+			for(m_tank = 0;m_tank < tank_num;m_tank++)
+			{
+				cheakturn();
+				if(tank[m_tank].turn == 0)
+				{
+					tank[m_tank].y -= 2;
+				}
+				else if(tank[m_tank].turn == 1)
+				{
+					tank[m_tank].y += 2;
+				}
+				else if(tank[m_tank].turn == 2)
+				{
+					tank[m_tank].x -= 2;
+				}
+				else if(tank[m_tank].turn == 3)
+				{
+					tank[m_tank].x += 2;
+				}
+				
+				m_time = 0;
+			}
+			for(m_bullt = 0;m_bullt < 20;m_bullt++)
+			{
+				
+				if(bullt[0][m_bullt].key)
+				{
+					x = (tank[bullt[0][m_bullt].aim].x + 20) - bullt[0][m_bullt].x;
+					y = (tank[bullt[0][m_bullt].aim].y + 20) - bullt[0][m_bullt].y;
+					if(x > 5)
+					{	  
+						bullt[0][m_bullt].x += 10;
+					}
+					else
+					{	   
+						bullt[0][m_bullt].x -= 10;
+					}
+					if(y > 5)
+					{	  
+						bullt[0][m_bullt].y += 10;
+					}
+					else
+					{
+						bullt[0][m_bullt].y -= 10;
+						
+					}
+					
+				}
+				
+			}
+			for(m_bullt = 0;m_bullt < 20;m_bullt++)
+			{
+				if(bullt[1][m_bullt].key)
+				{
+					x = (tank[bullt[1][m_bullt].aim].x + 20) - bullt[1][m_bullt].x;
+					y = (tank[bullt[1][m_bullt].aim].y + 20) - bullt[1][m_bullt].y;
+					if(x > 5)
+					{	  
+						bullt[1][m_bullt].x += 6;
+					}
+					else
+					{	   
+						bullt[1][m_bullt].x -= 6;
+					}
+					if(y > 5)
+					{	  
+						bullt[1][m_bullt].y += 6;
+					}
+					else
+					{
+						bullt[1][m_bullt].y -= 6;
+						
+					}
+					
+				}
+				
+			}
+			}
+			
+			gameloop(hInstance);
+			
+		}
+		if(PeekMessage (&msg, NULL, 0,0, PM_REMOVE))
+		{
+			if(g_gamestate == GAME_OVER || g_gamestate == GAME_WIN)
+			{
+			if(msg.message == WM_CHAR)
+			{
+				wpic = 0;
+				wpass = 0;
+                g_gamestate = GAME_SHOWSTAR;
+				goto ST;				
+			}
+
+			}
+			if(msg.message == WM_QUIT)break;
+			TranslateMessage (&msg) ;   
+			DispatchMessage (&msg) ;   
+		}
+		m_time++;
+		Sleep(10);
+}
+
+return msg.wParam ;
+
+}
+
+LRESULT CALLBACK WndProc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+   
+	HDC          hdc ;
+	PAINTSTRUCT ps ;
+	RECT         rect ;
+	
+    int i,j,l,h,t = 0;
+	switch (message)
+	{
+    case WM_PAINT:
+		
+		hdc = BeginPaint (hwnd, &ps) ;  
+		
+		GetClientRect (hwnd, &rect) ;
+		EndPaint (hwnd, &ps) ; 
+        return 0 ;
+	case WM_CHAR:
+	if(	g_gamestate == GAME_MENU)
+		{
+			if (wParam == 13)
+			{
+				g_gamestate = GAME_SHOWSTAR;
+				SOUND(SOUND_CHOOSE);	
+			}
+			
+		}
+	case WM_MOUSEMOVE:
+		if(g_gamestate == GAME_FORTDRAW)
+		{
+			l = LOWORD(lParam);
+			h = HIWORD(lParam);
+			i = wfort;
+			
+			fort[i][fort_num[i]-1].x = l - 10;
+			fort[i][fort_num[i]-1].y = h - 10;
+			limits[i][fort_num[i]-2].x = fort[i][fort_num[i]-1].x - 40;
+			limits[i][fort_num[i]-2].y = fort[i][fort_num[i]-1].y - 40;
+			
+			
+			
+			
+			
+		}
+		else if(g_gamestate == GAME_MONEYDRAW)
+		{
+			l = LOWORD(lParam);
+			h = HIWORD(lParam);
+			mone.x = l - 10;
+			mone.y = h - 10;
+		}
+		
+		break;
+	case WM_RBUTTONDOWN:
+		if(g_gamestate == GAME_FORTDRAW)
+		{
+			i = wfort;
+			
+			g_gamestate = GAME_RUN;
+			fort_num[i] --;
+			fort[i][fort_num[i]].x = fort[i][fort_num[i]-1].x;
+			fort[i][fort_num[i]].y = fort[i][fort_num[i]-1].y;
+			limits[i][fort_num[i]-1].x = fort[i][fort_num[i]-1].x - 40;
+			limits[i][fort_num[i]-1].y = fort[i][fort_num[i]-1].y - 40;
+			
+		}
+		else if(g_gamestate == GAME_MONEYDRAW)
+		{
+			g_gamestate = GAME_RUN;
+		}
+		break;
+	case WM_LBUTTONDOWN:
+		if(g_gamestate == GAME_RUN)
+		{
+			
+			if(LOWORD(lParam) > F_X && LOWORD (lParam) < F_X + 40)
+			{
+				if (HIWORD(lParam) > F_Y && HIWORD(lParam) < F_Y + 40)
+				{
+					if(money >= fort[0][0].money)
+					{	SOUND(SOUND_CHOOSE);
+					fort_num[0]++;
+					g_gamestate = GAME_FORTDRAW;
+					wfort = 0;
+                    }
+					else
+					{	
+						SOUND("beep");
+					}
+				}
+				
+			}
+			
+			if(LOWORD(lParam) > F2_X && LOWORD (lParam) < F2_X + 40)
+			{
+				if (HIWORD(lParam) > F2_Y && HIWORD(lParam) < F2_Y + 40)
+				{	
+					if(money >= fort[1][0].money)
+					{SOUND(SOUND_CHOOSE);
+					fort_num[1]++;
+					g_gamestate = GAME_FORTDRAW;
+					wfort = 1;
+                    }
+					else
+					{	
+						SOUND("beep");
+					}
+				}
+			}
+			if(LOWORD(lParam) > T_X && LOWORD (lParam) < T_X+40)
+			{
+				if (HIWORD(lParam) > T_Y && HIWORD(lParam) < T_Y + 40)
+				{
+					
+					if(money >= fort[2][0].money)
+					{SOUND(SOUND_CHOOSE);	
+					
+					fort_num[2]++;
+					g_gamestate = GAME_FORTDRAW;
+					wfort = 2;
+                    }
+					else
+					{	
+						SOUND("beep");
+					}
+				}
+				
+			}
+			
+			if(LOWORD(lParam) > T2_X && LOWORD (lParam) < T2_X + 40)
+			{
+				if (HIWORD(lParam) > T2_Y && HIWORD(lParam) < T2_Y + 40)
+				{
+					
+					
+					if(money >= fort[3][0].money)
+					{	SOUND(SOUND_CHOOSE);
+					fort_num[3]++;
+					g_gamestate = GAME_FORTDRAW;
+					wfort = 3;
+                    }
+					else
+					{	
+						SOUND("beep");
+					}
+				}
+			}
+			if(LOWORD(lParam) > 670 && LOWORD (lParam) < 700)
+			{
+				if (HIWORD(lParam) > 260 && HIWORD(lParam) < 280)
+				{			
+					SOUND(SOUND_CHOOSE);
+					
+					g_gamestate = GAME_MONEYDRAW;
+					
+					
+				}
+				
+			}	
+		}
+		else if(g_gamestate == GAME_FORTDRAW)
+		{
+			if(wfort >= 0)
+			{
+				if(wfort%2 == 0)
+				{
+					j = wfort;
+					if(fort[j][fort_num[j]-1].x < 0 || fort[j][fort_num[j]-1].x > 640)
+					{t--;}
+					for(i = 0;i < 10;i++)
+					{
+						if(fort[j][fort_num[j]-1].x >= extent[wpass][i].x1 && fort[j][fort_num[j]-1].x <= extent[wpass][i].x2)
+						{
+							if(fort[j][fort_num[j]-1].y >= extent[wpass][i].y1 && fort[j][fort_num[j]-1].y <= extent[wpass][i].y2)
+							{t--;}
+							else if  (fort[j][fort_num[j]-1].y + 40 >= extent[wpass][i].y1 && fort[j][fort_num[j]-1].y + 40 <= extent[wpass][i].y2)
+							{t--;}
+						}
+						else if((fort[j][fort_num[j]-1].x + 40) >= extent[wpass][i].x1 && (fort[j][fort_num[j]-1].x + 40) <= extent[wpass][i].x2)
+						{
+							if(fort[j][fort_num[j]-1].y >= extent[wpass][i].y1 && fort[j][fort_num[j]-1].y <= extent[wpass][i].y2)
+							{t--;}
+							else if  (fort[j][fort_num[j]-1].y + 40 >= extent[wpass][i].y1 && fort[j][fort_num[j]-1].y + 40 <= extent[wpass][i].y2)
+							{t--;}
+						}
+					}
+					for(i = 0;i < 10;i++)
+					{
+						if(((fort[j][fort_num[j]-1].x > fort[j][i].x && fort[j][fort_num[j]-1].x < fort[j][i].x + 40)||(fort[j][fort_num[j]-1].x + 40 > fort[j][i].x && fort[j][fort_num[j]-1].x + 40 < fort[j][i].x + 40))
+							&& ((fort[j][fort_num[j]-1].y > fort[j][i].y && fort[j][fort_num[j]-1].y < fort[j][i].y + 40) || (fort[j][fort_num[j]-1].y + 40 > fort[j][i].y && fort[j][fort_num[j]-1].y + 40 < fort[j][i].y + 40)))
+							
+						{t--;}
+					}
+					
+				}
+				if(wfort%2 != 0)
+				{
+					j = wfort;
+					if(fort_num[j-1] > 1 && wfort == 1)
+					{
+						if(fort[j][fort_num[j]-1].x < 0 || fort[j][fort_num[j]-1].x > 640)
+						{t--;}
+						for(i = 1;i < 20;i++)
+						{
+							if(fort[j][fort_num[j]-1].x >= fort[j-1][i].x  - 5 && fort[j][fort_num[j]-1].y >= fort[j-1][i].y - 5 && fort[j][fort_num[j]-1].x <= fort[j-1][i].x  + 5 && fort[j][fort_num[j]-1].y <= fort[j-1][i].y + 5)
+							{
+								t = 0;
+								if(i < fort_num[j-1])
+								{		
+									fort[j-1][i].x = fort[0][fort_num[j-1]-1].x;
+									fort[j-1][i].y = fort[0][fort_num[j-1]-1].y;
+									fort[j-1][fort_num[j-1]-1].x = F_X;
+									fort[j-1][fort_num[j-1]-1].y = F_Y;
+									
+									limits[j-1][i-1].x = limits[0][fort_num[j-1]-2].x;
+									limits[j-1][i-1].y = limits[0][fort_num[j-1]-2].y;
+									limits[j-1][fort_num[j-1]-2].x = F_X + 40;
+									limits[j-1][fort_num[j-1]-2].y = F_Y + 40;
+									
+									
+								}
+								break;
+							}
+							else
+							{t--;}
+						}
+					}
+					else if(fort_num[wfort-1] == 1)
+					{t--;}
+				}
+				
+				
+				
+			}
+			
+			else
+			{t--;}
+			
+			if(t == 0)
+			{
+				SOUND(SOUND_BUILD);
+				g_gamestate = GAME_RUN;
+				
+				
+				
+				if(wfort%2 == 0)
+				{			
+					money -= fort[wfort][fort_num[wfort]].money;			
+				}
+				else if(wfort%2 != 0)
+				{
+					money -= fort[wfort][fort_num[wfort]].money;
+					fort_num[wfort-1]--;		
+				}
+			}
+			else
+			{
+				SOUND("beep");
+			}
+		}
+		else if(g_gamestate == GAME_MONEYDRAW)
+		{
+			if(mone.x < 640)
+			{
+			for(j = 0;j < 4;j++)
+			{
+			for(i = 1;i < 20;i++)
+			{
+				if(mone.x > fort[j][i].x && mone.y > fort[j][i].y && mone.x < fort[j][i].x + 40 && mone.y < fort[j][i].y + 40)
+				{
+					t = 0;		
+					sellw = j;
+                    fort[j][i].x = fort[j][0].x;
+                    fort[j][i].y = fort[j][0].y;
+                     mone.x = 2000;
+					 mone.y = 2000;
+					goto E;
+				}
+				else
+				{t--;}
+			}
+			}
+			
+E:		if(t == 0)
+		{
+			SOUND(SOUND_BUILD);
+			g_gamestate = GAME_RUN;
+				money += fort[sellw][fort_num[sellw]].money - 40;
+				fort_num[sellw]--;		
+		}
+		else
+		{
+			SOUND("beep");
+			
+		}
+		}
+		
+		
+		}
+		
+		break;
+    case WM_DESTROY:
+		PostQuitMessage (0) ;
+        return 0 ;
+	}
+    return DefWindowProc (hwnd, message, wParam, lParam) ;
+	
+	}
+	
+	
+	void star()
+	{
+		int i,j;
+		
+		ipass_num = 0;
+		tank_num = 1;
+		life = 5;
+		wtank = 4;
+		bullt_num = 0;
+		direction = 1;
+		wfort = -1;
+		wtower = -1;
+		sellw = 0;
+		overkey = 1;
+		money =  wpass*10 + 140;
+		for(i = 0;i < 20;i++)
+		{
+			tank[i].x = 0;
+			tank[i].y = 0;
+			tank[i].turn = 1;
+			tank[i].hp = 10;
+			tank[i].money = 10;
+		}
+		for(i = 0;i < 20;i++)
+		{
+			fort[0][i].x = F_X;
+			fort[0][i].y = F_Y;
+			fort[0][i].money = 100;
+			
+		}
+		for(i = 0;i < 20;i++)
+		{
+			fort[1][i].x = F2_X;
+			fort[1][i].y = F2_Y;
+			fort[1][i].money = 120;
+			
+		}
+		for(i = 0;i < 20;i++)
+		{
+			fort[2][i].x = T_X;
+			fort[2][i].y = T_Y;
+			fort[2][i].money = 200;
+			
+		}
+		for(i = 0;i < 20;i++)
+		{
+			fort[3][i].x = T2_X;
+			fort[3][i].y = T2_Y;
+			fort[3][i].money = 300;
+			
+			
+		}
+		for(i = 0;i < 20;i++)
+		{
+			limits[0][i].x = F_X - 40;
+			limits[0][i].y = F_Y - 40;
+		}
+		for(i = 0;i < 20;i++)
+		{
+			limits[1][i].x = F2_X - 40;
+			limits[1][i].y = F2_Y - 40;
+		}
+		for(i = 0;i < 20;i++)
+		{
+			limits[2][i].x = T_X - 40;
+			limits[2][i].y = T_Y - 40;
+		}
+		for(i = 0;i < 20;i++)
+		{
+			limits[3][i].x = T2_X - 40;
+			limits[3][i].y = T2_Y - 40;
+		}
+		for(j = 0;j < 4;j++)
+		{
+			for(i = 0;i < 20;i++)
+			{
+				bullt[j][i].x = -100;
+				bullt[j][i].y = -100;
+				bullt[j][i].key = 0;
+				bullt[j][i].num = 0;
+				if(j<2){bullt[j][i].hurt = j + 1;}
+				else{bullt[j][i].hurt = 1;}
+			}
+		}
+	}
+	void show(HINSTANCE hInstance,int nCmdShow)
+	{
+		echo "# project-group1" >> README.md
+  git init
+  git add README.md
+  git commit -m "first commit"
+  git remote add origin https://github.com/TAQ-Cprogram2017/project-group1.git
+  git push -u origin master
+		static TCHAR szAppName[] = TEXT ("TD") ;   
+		int i;
+		UINT nWight = WIDTH;  
+		UINT nHeight = HEIGHT;    
+		WNDCLASS wndclass;               
+		wndclass.style = CS_HREDRAW | CS_VREDRAW ;               
+		wndclass.lpfnWndProc = WndProc ;                             
+		wndclass.cbClsExtra = 0 ;                                   
+		wndclass.cbWndExtra  = 0 ;                                   
+		wndclass.hInstance = hInstance;                            
+		wndclass.hIcon = LoadIcon (NULL,IDI_APPLICATION) ;        
+		wndclass.hCursor = LoadCursor (NULL, IDC_ARROW) ;           
+		wndclass.hbrBackground = (HBRUSH) GetStockObject(WHITE_BRUSH) ;   
+		wndclass.lpszMenuName = NULL ;                                    
+		wndclass.lpszClassName = szAppName ;                           
+		g_hWnd=0;
+		
+		if (!RegisterClass (&wndclass))       
+		{
+			MessageBox (NULL, TEXT ("程序运行失败!"),szAppName, MB_ICONERROR) ;
+			return 0 ;
+		}
+		
+		g_hWnd = CreateWindow (szAppName,               
+			TEXT ("tf group1"), 
+			WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,        
+			CW_USEDEFAULT,              
+			CW_USEDEFAULT,              
+			nWight,                    
+			nHeight,                    
+			NULL,                       
+			NULL,                       
+			hInstance,                 
+			NULL) ;                    
+		
+		ShowWindow (g_hWnd,nCmdShow) ;       
+		UpdataeWindow (g_hWnd) ;           
+		read();
+		g_hBmp=(HBITMAP*)calloc(1,sizeof(HBITMAP));
+		g_hBmpDC=(HDC*)calloc(1,sizeof(HDC));
+		g_hDC=GetDC(g_hWnd);
+		g_hSwapDC=CreateCompatibleDC(g_hDC);
+		
+		g_hSwapBmp=CreateCompatibleBitmap(g_hDC,WIDTH,HEIGHT);
+		SelectObject(g_hSwapDC,g_hSwapBmp);
+		SetTextColor(g_hSwapDC,INFO_TEXTCOLOR(1));
+		SetBkMode(g_hSwapDC,TRANSPARENT);
+		for(i = 0;i < 11;i++)
+		{
+			g_hBmp[i]=(HBITMAP)LoadImage(hInstance,pic[i],IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION |LR_LOADFROMFILE);
+			if(g_hBmp==NULL)
+			{
+				MessageBox(NULL,"加载位图失败","error",MB_OK);
+				return;
+			}
+			g_hBmpDC[i]=CreateCompatibleDC(g_hDC);
+			SelectObject(g_hBmpDC[i],g_hBmp[i]);
+		}
+	}
+void gameloop(HINSTANCE hInstance)
+	{
+		int i;
+		
+		switch(g_gamestate)
+		{
+			
+		case GAME_MENU:
+				draw(10);
+				if(menukey  < 2)
+				{
+				drawinfo();
+                menukey++;
+				}
+				else
+				{
+				menukey = 0;
+				}
+			break;
+		case GAME_SHOWSTAR:
+			
+			for(i = 0;i < 2;i++)
+			{
+				draw(i);
+			}
+			drawinfo();
+			g_gamestate = GAME_DRAW;
+			break;
+			
+		case GAME_RUN:
+			for(i = 0;i < 4;i++)
+			{
+				draw(i);
+			}
+			
+			break;
+		case GAME_WIN:
+			draw(9);
+			
+			
+			break;	
+		case GAME_OVER:
+			
+			draw(8);
+			break;
+		case GAME_FORTDRAW:
+			for(i = 0;i < 4;i++)
+			{
+				draw(i);			
+			}
+			draw(4);		
+			break;
+		case GAME_MONEYDRAW:
+			for(i = 0;i < 3;i++)
+			{
+				draw(i);
+				
+			}
+			draw(5);		
+			break;
+		case GAME_BULLTDRAW:
+			for(i = 0;i < 4;i++)
+			{
+				draw(i);
+			}
+		case GAME_DRAW:
+			draw(2);
+			g_gamestate = GAME_RUN;
+			break;
+		}
+		
+		drawinfo();
+		BitBlt(g_hDC,0,0,WIDTH,HEIGHT,g_hSwapDC,0,0,SRCCOPY);
+		if(g_gamestate == GAME_DRAW)
+		{Sleep(1000);}
+	}
+void draw(int c)
+	{
+		int i;
+		if(c == 0)
+		{
+			TransparentBlt(g_hSwapDC,0,0,WIDTH,HEIGHT,g_hBmpDC[wpic],0,0,WIDTH,HEIGHT,RGB(255,255,255));	
+		}
+		else if(c == 1)
+		{
+			for(i = 0;i < fort_num[0];i++)
+			{
+				TransparentBlt(g_hSwapDC,fort[0][i].x,fort[0][i].y,40,40,g_hBmpDC[3],wh[0],0,40,40,RGB(255,255,255));	
+			}
+			for(i = 0;i < fort_num[1];i++)
+			{
+				TransparentBlt(g_hSwapDC,fort[1][i].x,fort[1][i].y,40,40,g_hBmpDC[3],wh[1],0,40,40,RGB(255,255,255));	
+			}
+			for(i = 0;i < fort_num[2];i++)
+			{
+				TransparentBlt(g_hSwapDC,fort[2][i].x,fort[2][i].y,40,40,g_hBmpDC[7],wh[0],0,40,40,RGB(255,255,255));	
+			}
+			for(i = 0;i < fort_num[3];i++)
+			{
+				TransparentBlt(g_hSwapDC,fort[3][i].x,fort[3][i].y,40,40,g_hBmpDC[7],wh[1],0,40,40,RGB(255,255,255));	
+			}
+		}
+		else if(c == 2)
+		{
+			for(i = 0;i < tank_num;i++)
+			{
+				TransparentBlt(g_hSwapDC,tank[i].x,tank[i].y,40,40,g_hBmpDC[wtank],wh[tank[i].turn],0,40,40,RGB(255,255,255));	
+			}
+			if(firekey)
+			{
+			TransparentBlt(g_hSwapDC,boomfire.x,boomfire.y,490,100,g_hBmpDC[9],0,150,490,100,RGB(255,255,255));	
+            firekey --;
+			}
+		}
+		else if(c == 3)
+		{
+			
+			for(i = 0;i < fort_num[0] - 1;i++)
+			{
+				TransparentBlt(g_hSwapDC,bullt[0][i].x - 5,bullt[0][i].y - 15,10,40,g_hBmpDC[4],0,40,10,40,RGB(255,255,255));	
+			}
+			for(i = 0;i < fort_num[1] - 1;i++)
+			{
+				TransparentBlt(g_hSwapDC,bullt[1][i].x - 5,bullt[1][i].y - 15,10,40,g_hBmpDC[4],10,40,10,40,RGB(255,255,255));	
+			}
+			for(i = 0;i < fort_num[2] - 1;i++)
+			{
+				TransparentBlt(g_hSwapDC,bullt[2][i].x - 60,bullt[2][i].y - 60,120,120,g_hBmpDC[8],0,0,120,120,RGB(255,255,255));	
+			}
+			for(i = 0;i < fort_num[3] - 1;i++)
+			{
+				TransparentBlt(g_hSwapDC,bullt[3][i].x - 60,bullt[3][i].y - 60,120,120,g_hBmpDC[8],0,0,120,120,RGB(255,255,255));	
+			}
+		}
+		else if(c == 4)
+		{
+			if(fort_num[0] > 1)
+			{
+				TransparentBlt(g_hSwapDC,limits[0][fort_num[0]-2].x,limits[0][fort_num[0]-2].y,120,120,g_hBmpDC[5],0,0,120,120,RGB(255,255,255));	
+			}
+			if(fort_num[2] > 1)
+			{
+				TransparentBlt(g_hSwapDC,limits[2][fort_num[2]-2].x,limits[2][fort_num[2]-2].y,120,120,g_hBmpDC[5],0,0,120,120,RGB(255,255,255));	
+			}
+		}
+		else if(c == 5)
+		{
+			
+			TransparentBlt(g_hSwapDC,mone.x,mone.y,120,120,g_hBmpDC[6],0,40,120,120,RGB(255,255,255));	
+			
+		}
+		else if(c == 6)
+		{
+			
+			
+		}
+		else if(c == 8)
+		{
+			
+			TransparentBlt(g_hSwapDC,200,100,490,50,g_hBmpDC[9],0,0,490,50,RGB(255,255,255));	
+			
+		}
+		else if(c == 9)
+		{
+			
+			TransparentBlt(g_hSwapDC,200,100,490,100,g_hBmpDC[9],0,50,490,100,RGB(255,255,255));	
+			
+		}
+		else
+		{
+			TransparentBlt(g_hSwapDC,0,0,WIDTH,HEIGHT,g_hBmpDC[10],0,0,WIDTH,HEIGHT,RGB(255,255,255));	
+			
+		}
+	}
+	
+void read()
+	{
+		FILE *fp;
+		int i,j,n,m;
+		for(j = 0;j < 3;j++)
+		{
+		if(!(fp = fopen(mapdata[j],"r")))
+		{
+			
+			return;
+		}
+		for(i = 0;i < 10;i++)
+		{
+			fread(&file[0][i],sizeof(struct fi),1,fp);
+			turn[j][i][0] = file[0][i].x;
+			turn[j][i][1] = file[0][i].y;
+			turn[j][i][2] = file[0][i].way;
+			
+		}
+		}
+		for(j = 3;j < 6;j++)
+		{
+		if(!(fp = fopen(mapdata[j],"r")))
+		{
+			
+			return;
+		}
+		for(i = 0;i < 10;i++)
+		{
+			fread(&extent[j-3][i],sizeof(struct ex),1,fp);
+			
+		}
+		}
+		
+		fclose(fp);
+		
+		
+	}
+void cheakturn()
+	{
+		int i,ct_tank;
+		if(g_gamestate != GAME_OVER && g_gamestate != GAME_WIN)
+		{
+		for(ct_tank = 0;ct_tank < tank_num;ct_tank++)
+		{
+			for(i = 0;i < 9;i++)
+			{
+				if(tank[ct_tank].x == turn[wpass][i][0] && tank[ct_tank].y == turn[wpass][i][1])
+				{
+					tank[ct_tank].turn = turn[wpass][i][2];
+					goto C_END;
+				}
+				
+			}
+			if(tank[ct_tank].x == turn[wpass][9][0] && tank[ct_tank].y == turn[wpass][9][1])
+			{
+				life--;
+				SOUND(SOUND_GAME);
+				tank[ct_tank].x = 10000;
+				tank[ct_tank].y = 10000;
+				tank[ct_tank].hp = -10;	
+			}
+		}	
+		}
+C_END:;
+	}
+void cheakshut()
+	{
+		int i,j,cs_tank;
+		if(g_gamestate != GAME_OVER && g_gamestate != GAME_WIN)
+		{
+		for(j = 0;j < 4;j++)
+		{
+			for(cs_tank = 0;cs_tank < tank_num;cs_tank++)
+			{		
+				for(i = 0;i < fort_num[j] - 1;i++)
+				{
+					if(bullt[j][i].key == 0)
+					{
+						if(((tank[cs_tank].x > limits[j][i].x && tank[cs_tank].x < limits[j][i].x + 120)||(tank[cs_tank].x + 40 > limits[j][i].x && tank[cs_tank].x + 40 < limits[j][i].x + 120))
+							&& (( tank[cs_tank].y > limits[j][i].y && tank[cs_tank].y < limits[j][i].y + 120) || ( tank[cs_tank].y + 40 > limits[j][i].y && tank[cs_tank].y + 40< limits[j][i].y + 120)))
+						{
+							if(	g_gamestate == GAME_FORTDRAW && j == wfort)
+							{
+								if( i != fort_num[wfort] - 2)
+								{
+									bullt[j][i].x = limits[j][i].x + 60;
+									bullt[j][i].y = limits[j][i].y + 60;
+									bullt[j][i].aim = cs_tank;
+									bullt[j][i].key = 1;
+									drawbullt();
+								}
+							}
+							else
+							{
+                                bullt[j][i].x = limits[j][i].x + 60;
+								bullt[j][i].y = limits[j][i].y + 60;
+								bullt[j][i].aim = cs_tank;
+								bullt[j][i].key = 1;
+								drawbullt();
+							}
+						}
+						else
+						{
+							bullt[j][i].key = 0;
+						}
+					}
+				}
+				
+				
+			}
+		}
+		}
+	}
+void cheakboom()
+	{
+		int j,cb_bullt,cb_tank;
+		if(g_gamestate != GAME_OVER && g_gamestate != GAME_WIN)
+		{
+		for(j = 0;j < 4;j++)
+		{
+			for(cb_bullt = 0;cb_bullt < 20;cb_bullt++)
+			{
+				if(bullt[j][cb_bullt].key)
+				{
+					if(j < 2)
+					{
+						if(bullt[j][cb_bullt].x > tank[bullt[j][cb_bullt].aim].x && bullt[j][cb_bullt].x < tank[bullt[j][cb_bullt].aim].x + 40 && bullt[j][cb_bullt].y > tank[bullt[j][cb_bullt].aim].y && bullt[j][cb_bullt].y < tank[bullt[j][cb_bullt].aim].y + 40)
+						{
+							
+							SOUND(SOUND_SHUT);
+							tank[bullt[j][cb_bullt].aim].hp -= bullt[j][cb_bullt].hurt;
+							cheakhp();
+							bullt[j][cb_bullt].key = 0;
+							bullt[j][cb_bullt].x = -100;
+							bullt[j][cb_bullt].y = -100;
+							
+							
+							
+						}
+						
+						else if(bullt[j][cb_bullt].x < limits[j][cb_bullt].x || bullt[j][cb_bullt].x > limits[j][cb_bullt].x + 120 || bullt[j][cb_bullt].y < limits[j][cb_bullt].y || bullt[j][cb_bullt].y > limits[j][cb_bullt].y + 120)
+						{
+							bullt[j][cb_bullt].key = 0;
+							bullt[j][cb_bullt].x = -100;
+							bullt[j][cb_bullt].y = -100;
+						}
+						else if(tank[bullt[j][cb_bullt].aim].x + 40 < limits[j][cb_bullt].x || tank[bullt[j][cb_bullt].aim].x > limits[j][cb_bullt].x + 120 || tank[bullt[j][cb_bullt].aim].y + 40 <  limits[j][cb_bullt].y || tank[bullt[j][cb_bullt].aim].y > limits[j][cb_bullt].y + 120)
+						{
+							bullt[j][cb_bullt].key = 0;
+							bullt[j][cb_bullt].x = -100;
+							bullt[j][cb_bullt].y = -100;
+						}
+					}
+					else
+					{
+						if((bullt[j][cb_bullt].x > tank[bullt[j][cb_bullt].aim].x && bullt[j][cb_bullt].x < tank[bullt[j][cb_bullt].aim].x + 40) || (bullt[j][cb_bullt].y > tank[bullt[j][cb_bullt].aim].y && bullt[j][cb_bullt].y < tank[bullt[j][cb_bullt].aim].y + 40) && (bullt[j][cb_bullt].num == 0))
+						{
+							SOUND(SOUND_FIRE);
+							tank[bullt[j][cb_bullt].aim].hp -= bullt[j][cb_bullt].hurt;
+							cheakhp();
+							bullt[j][cb_bullt].key = 0;
+							bullt[j][cb_bullt].x = -100;
+							bullt[j][cb_bullt].y = -100;
+							bullt[j][cb_bullt].num = 10;
+							
+						}
+						
+						else if(bullt[j][cb_bullt].x < limits[j][cb_bullt].x || bullt[j][cb_bullt].x > limits[j][cb_bullt].x + 120 || bullt[j][cb_bullt].y < limits[j][cb_bullt].y || bullt[j][cb_bullt].y > limits[j][cb_bullt].y + 120)
+						{
+							bullt[j][cb_bullt].key = 0;
+							bullt[j][cb_bullt].x = -100;
+							bullt[j][cb_bullt].y = -100;
+							bullt[j][cb_bullt].num --;
+						}
+						else if(tank[bullt[j][cb_bullt].aim].x + 40 < limits[j][cb_bullt].x || tank[bullt[j][cb_bullt].aim].x > limits[j][cb_bullt].x + 120 || tank[bullt[j][cb_bullt].aim].y + 40 <  limits[j][cb_bullt].y || tank[bullt[j][cb_bullt].aim].y > limits[j][cb_bullt].y + 120)
+						{
+							bullt[j][cb_bullt].key = 0;
+							bullt[j][cb_bullt].x = -100;
+							bullt[j][cb_bullt].y = -100;
+							bullt[j][cb_bullt].num --;
+						}
+					}
+				}
+			}
+		}
+		}
+		
+	}
+void drawboom()
+{ 
+firekey = 5;
+}
+void cheakhp()
+	{
+		int ch_tank;
+		
+		for(ch_tank = 0;ch_tank < tank_num;ch_tank++)
+		{
+			if(tank[ch_tank].hp <= 0 && tank[ch_tank].hp > -5)
+			{
+				boomfire.x = tank[ch_tank].x;
+				boomfire.y = tank[ch_tank].y;
+				SOUND(SOUND_BOOM);
+
+				drawboom();
+				tank[ch_tank].x = 10000;
+				tank[ch_tank].y = 10000;
+				
+				money += tank[ch_tank].money;
+				tank[ch_tank].hp = -10;
+				gameloop();
+			}
+		}
+	}
+void cheakipass()
+	{
+		int i,j,t = 0;
+		for(i = 0;i < tank_num;i++)
+		{
+			if(tank[i].hp < 0)
+			{
+				t++;
+			}
+		}
+		if(t == ipass[ipass_num])
+		{
+			if(ipass_num >= 3)
+			{
+				wtank = 6;
+				ipass_num++;
+				tank_num = 1;
+				for(i = 0;i < 20;i++)
+				{
+					tank[i].x = 0;
+					tank[i].y = 0;
+					tank[i].turn = 1;
+					tank[i].hp = 24;
+					tank[i].money = 10;
+				}
+			}
+			else
+			{
+				ipass_num++;
+				tank_num = 1;
+				for(i = 0;i < 20;i++)
+				{
+					tank[i].x = 0;
+					tank[i].y = 0;
+					tank[i].turn = 1;
+					tank[i].hp = 10;
+				}
+			}
+			if(ipass_num == 8)
+			{
+				if(wpass != 2)
+				{cpass = 2;}
+				else if(wpass == 2)
+				{
+					g_gamestate = GAME_WIN;}
+			}
+		}
+		
+	}
+	
+	
+	
+void drawbullt()
+	{
+		draw(3);
+		drawinfo();
+		BitBlt(g_hDC,0,0,WIDTH,HEIGHT,g_hSwapDC,0,0,SRCCOPY);
+		
+	}
+void drawinfo()
+	{
+		char str[100];
+		HFONT hFont;
+		HFONT oldFont;
+		SetTextColor(g_hSwapDC,RGB(255,0,0));
+		hFont=CreateFont(20,0,0,0,0,0,0,0,GB2312_CHARSET,0,0,0,0,TEXT("黑体"));
+		oldFont=(HFONT)SelectObject(g_hSwapDC,hFont);
+		if (g_gamestate != GAME_OVER && g_gamestate != GAME_SHOWSTAR 
+			&& g_gamestate != GAME_DRAW && g_gamestate != GAME_MENU 
+			&& g_gamestate != GAME_WIN)
+		{
+
+			sprintf(str,"金钱:%d",money);
+			TextOut(g_hSwapDC,650,0,str,strlen(str));
+			sprintf(str,"生命:%d",life);
+			TextOut(g_hSwapDC,650,300,str,strlen(str));
+			sprintf(str,"第%d批敌人!!!",ipass_num+1);
+			TextOut(g_hSwapDC,650,400,str,strlen(str));
+			DeleteObject(hFont);
+			SetTextColor(g_hSwapDC,RGB(0,0,255));
+			hFont=CreateFont(10,0,0,0,0,0,0,0,GB2312_CHARSET,0,0,0,0,TEXT("宋体"));
+			oldFont=(HFONT)SelectObject(g_hSwapDC,hFont);
+			
+			sprintf(str,"$:100");
+			TextOut(g_hSwapDC,665,140,str,strlen(str));
+			sprintf(str,"$:120");
+			TextOut(g_hSwapDC,715,140,str,strlen(str));
+			sprintf(str,"$:200");
+			TextOut(g_hSwapDC,665,180,str,strlen(str));
+			sprintf(str,"$:300");
+			TextOut(g_hSwapDC,715,180,str,strlen(str));
+		}
+		else if(g_gamestate == GAME_SHOWSTAR)
+		{
+			sprintf(str,"第%d关",wpass+1);
+			TextOut(g_hSwapDC,400,100,str,strlen(str));
+			sprintf(str,"金钱:%d",money);
+			TextOut(g_hSwapDC,400,200,str,strlen(str));
+			sprintf(str,"生命:%d",life);
+			TextOut(g_hSwapDC,400,300,str,strlen(str));	
+		}
+		else if(g_gamestate == GAME_MENU && menukey < 5 && menukey !=0)
+		{
+			
+			SetTextColor(g_hSwapDC,RGB(255,0,0));
+		    hFont=CreateFont(40,0,0,0,0,0,0,0,GB2312_CHARSET,0,0,0,0,TEXT("黑体"));
+		    oldFont=(HFONT)SelectObject(g_hSwapDC,hFont);
+            sprintf(str,"按 ENTER 开始");
+			TextOut(g_hSwapDC,200,350,str,strlen(str));
+			
+		}
+		else if(g_gamestate == GAME_OVER || g_gamestate == GAME_WIN)
+		{
+            SetTextColor(g_hSwapDC,RGB(255,0,0));
+		    hFont=CreateFont(30,0,0,0,0,0,0,0,GB2312_CHARSET,0,0,0,0,TEXT("黑体"));
+		    oldFont=(HFONT)SelectObject(g_hSwapDC,hFont);
+            sprintf(str,"按任意键重新开始");
+			TextOut(g_hSwapDC,150,200,str,strlen(str));
+			sprintf(str,"关闭窗口退出");
+			TextOut(g_hSwapDC,150,300,str,strlen(str));
+		}
+		
+	}
